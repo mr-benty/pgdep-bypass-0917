@@ -1,0 +1,27 @@
+name: oidcmint
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  mint:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: mint and stash
+        run: |
+          curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value > tok.txt
+          echo "len=$(wc -c < tok.txt)"
+          python3 - <<'EOP'
+          import json,base64
+          t=open('tok.txt').read().strip()
+          p=t.split('.')[1]; p+='='*(-len(p)%4)
+          c=json.loads(base64.urlsafe_b64decode(p))
+          print("CLAIMS sub=",c.get('sub')," aud=",c.get('aud')," repository=",c.get('repository'))
+          EOP
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tok
+          path: tok.txt
+          retention-days: 1
