@@ -1,0 +1,14 @@
+name: pgdep-clock
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  mk:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mkdir -p out && echo "<h1>expiry-clock</h1>" > out/index.html && tar -czf artifact.tar.gz -C out .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: github-pages
+          path: artifact.tar.gz
+          retention-days: 1
